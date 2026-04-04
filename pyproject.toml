@@ -1,0 +1,15 @@
+[project]
+name = "vssl"
+version = "1.0.0"
+description = "liminal interface"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "httpx>=0.27.0",
+    "psutil>=6.0.0",
+    "python-multipart>=0.0.9",
+]
+
+[dependency-groups]
+dev = []

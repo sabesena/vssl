@@ -1,0 +1,22 @@
+[Unit]
+Description=vssl — liminal interface
+After=network.target ollama.service
+Wants=ollama.service
+
+[Service]
+Type=simple
+User=rina
+WorkingDirectory=/mnt/1TB/vssl
+ExecStartPre=/bin/bash -c 'cd /mnt/1TB/vssl/frontend && npm run build'
+ExecStart=/usr/bin/bash /mnt/1TB/vssl/start.sh
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# security
+NoNewPrivileges=true
+PrivateTmp=false
+
+[Install]
+WantedBy=multi-user.target
