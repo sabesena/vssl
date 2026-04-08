@@ -73,6 +73,28 @@ export default function App() {
   useEffect(() => { scrollToBottom() }, [messages, scrollToBottom])
 
   useEffect(() => {
+    let zoom = 1
+    function handleZoom(e) {
+      if (!e.ctrlKey) return
+      if (e.key === '=' || e.key === '+') {
+        e.preventDefault()
+        zoom = Math.min(zoom + 0.1, 2)
+        document.documentElement.style.zoom = zoom
+      } else if (e.key === '-') {
+        e.preventDefault()
+        zoom = Math.max(zoom - 0.1, 0.5)
+        document.documentElement.style.zoom = zoom
+      } else if (e.key === '0') {
+        e.preventDefault()
+        zoom = 1
+        document.documentElement.style.zoom = 1
+      }
+    }
+    window.addEventListener('keydown', handleZoom)
+    return () => window.removeEventListener('keydown', handleZoom)
+  }, [])
+
+  useEffect(() => {
     fetchConversations()
     fetchModels()
     checkHealth()
@@ -173,6 +195,7 @@ export default function App() {
       id: assistantId,
       role: 'assistant',
       content: '',
+      reasoning: '',
       toolCalls: [],
       created_at: new Date().toISOString(),
     }
@@ -228,6 +251,11 @@ export default function App() {
       case 'conversation_id':
         setCurrentConvId(event.data)
         fetchConversations()
+        break
+      case 'reasoning':
+        setMessages(prev => prev.map(m =>
+          m.id === assistantId ? { ...m, reasoning: event.data } : m
+        ))
         break
       case 'tool_call':
         setMessages(prev => prev.map(m =>

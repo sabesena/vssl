@@ -117,12 +117,15 @@ async def _ollama_chat(messages: list, model: str) -> dict:
                 "model": model,
                 "messages": messages,
                 "stream": False,
-                "options": {"temperature": 0.7, "num_predict": 2048},
+                "options": {
+                    "temperature": 0.7,
+                    "num_predict": 2048,
+                },
+                "think": True,
             },
         )
         resp.raise_for_status()
         return resp.json()
-
 
 def _parse_tool_calls(text: str) -> list:
     calls = []
@@ -188,11 +191,15 @@ async def chat(request: ChatRequest):
             for iteration in range(MAX_ITER):
                 response = await _ollama_chat(ollama_msgs, request.model)
                 content = response.get("message", {}).get("content", "")
+                thinking = response.get("message", {}).get("thinking", "")
 
                 tool_calls = _parse_tool_calls(content)
 
                 if not tool_calls:
                     # ── the oracle speaks — stream final response ──────────────
+                    if thinking:
+                        yield _sse("reasoning", thinking)
+
                     final_text = _clean_final(content)
                     if not final_text:
                         final_text = content
