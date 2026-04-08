@@ -13,6 +13,44 @@ const SUGGESTIONS = [
   'list files in /home/rina',
 ]
 
+function ModelSelector({ models, selected, onSelect }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    function handleClick(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  return (
+    <div className="model-selector" ref={ref}>
+      <button
+        className={`model-selector-btn${open ? ' open' : ''}`}
+        onClick={() => setOpen(o => !o)}
+      >
+        {selected}
+        <span className="chevron">▾</span>
+      </button>
+      {open && (
+        <div className="model-dropdown">
+          {models.map(m => (
+            <button
+              key={m}
+              className={`model-option${m === selected ? ' active' : ''}`}
+              onClick={() => { onSelect(m); setOpen(false) }}
+            >
+              {m}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function App() {
   const [conversations, setConversations] = useState([])
   const [currentConvId, setCurrentConvId] = useState(null)
@@ -60,16 +98,16 @@ export default function App() {
     } catch { }
   }
 
-  async function checkHealth() {
-    try {
-      const r = await fetch(`${API}/api/health`)
-      const d = await r.json()
-      setOllamaOk(d.ollama)
-    } catch {
-      setOllamaOk(false)
-    }
+ async function checkHealth() {
+  try {
+    const r = await fetch(`${API}/api/health`)
+    const d = await r.json()
+    setOllamaOk(d.ollama)
+    if (models.length === 0) fetchModels()
+  } catch {
+    setOllamaOk(false)
   }
-
+}
   async function loadConversation(convId) {
     setCurrentConvId(convId)
     setError(null)
@@ -253,16 +291,11 @@ export default function App() {
             {currentConv?.title || ''}
           </span>
 
-          <select
-            className="model-select"
-            value={selectedModel}
-            onChange={e => setSelectedModel(e.target.value)}
-          >
-            {models.length === 0
-              ? <option value={selectedModel}>{selectedModel}</option>
-              : models.map(m => <option key={m} value={m}>{m}</option>)
-            }
-          </select>
+          <ModelSelector
+            models={models.length ? models : [selectedModel]}
+            selected={selectedModel}
+            onSelect={setSelectedModel}
+          />
 
           <button className="header-btn" onClick={() => setShowSettings(true)}>
             settings
