@@ -1,7 +1,9 @@
 import asyncio
 import json
+import logging
 import re
 import sys
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
@@ -15,6 +17,7 @@ from pydantic import BaseModel
 sys.path.insert(0, str(Path(__file__).parent))
 from database import Database
 from tools import TOOLS_SCHEMA, execute_tool
+from rag import VsslMemory
 
 # ✦ vssl — backend threshold ✦
 # the plea arrives. the vessel considers. something returns.
@@ -54,10 +57,27 @@ TOOL_CALL_RE = re.compile(r"<tool_call>(.*?)</tool_call>", re.DOTALL)
 TOOL_RESP_RE = re.compile(r"<tool_response>.*?</tool_response>", re.DOTALL)
 
 db = Database(DB_PATH)
+memory: Optional[VsslMemory] = None
+
+
+async def _boot_memory() -> None:
+    global memory
+    try:
+        memory = await asyncio.to_thread(VsslMemory)
+        logging.warning("✦ vssl memory online")
+    except Exception as e:
+        logging.warning(f"✦ vssl memory failed to init: {e}")
+
+
+@asynccontextmanager
+async def lifespan(app_: FastAPI):
+    asyncio.create_task(_boot_memory())
+    yield
+
 
 # ── app ────────────────────────────────────────────────────────────────────────
 
-app = FastAPI(title="vssl", version="0.4.33")
+app = FastAPI(title="vssl", version="0.4.33", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -179,6 +199,12 @@ async def chat(request: ChatRequest):
             sys_prompt = _build_system_prompt(
                 request.system_prompt or conv_data.get("system_prompt")
             )
+            memory_block = memory.retrieve_relevant(request.message) if memory else ""
+            if memory_block:
+                sys_prompt = (
+                    f"✦ MEMORY — what nyx recalls:\n{memory_block}\n✦ END MEMORY\n\n"
+                    + sys_prompt
+                )
             db_msgs = db.get_messages(conv_id)
             ollama_msgs = _build_ollama_messages(db_msgs, sys_prompt)
 
@@ -226,6 +252,10 @@ async def chat(request: ChatRequest):
                         db.update_conversation(conv_id, title=request.message[:60].strip())
 
                     yield _sse("done", {"conversation_id": conv_id, "message_id": msg_id})
+                    if memory:
+                        asyncio.create_task(asyncio.to_thread(
+                            memory.store_exchange, conv_id, request.message, final_text
+                        ))
                     break
 
                 # ── deduplicate — the vessel does not repeat the same invocation
@@ -340,6 +370,16 @@ def clear_conversation(conv_id: str):
 @app.get("/api/conversations/{conv_id}/messages")
 def get_messages(conv_id: str):
     return db.get_messages(conv_id)
+
+
+# ── memory API ─────────────────────────────────────────────────────────────────
+
+@app.get("/api/memory/index")
+async def reindex_memory():
+    if not memory:
+        raise HTTPException(503, "memory not ready yet — wait a moment and retry")
+    count = await asyncio.to_thread(memory.index_system_files)
+    return {"indexed": count}
 
 
 # ── models API ─────────────────────────────────────────────────────────────────
