@@ -1,0 +1,10 @@
+# set Exec= and Icon= to your vssl path
+[Desktop Entry]
+Name=vssl
+Comment=liminal interface
+Exec=/path/to/vssl/vssl-launch.sh
+Icon=/path/to/vssl/docs/icon.png
+Type=Application
+Categories=Utility;
+Terminal=false
+StartupNotify=false

@@ -43,6 +43,9 @@ cd vssl
 
 opens at `http://localhost:5173`
 
+for terminal-free launching: `./vssl-launch.sh` — backend logs to `/tmp/vssl-backend.log`.
+copy `extras/vssl.desktop` to `~/.local/share/applications/` for hyprlauncher, rofi, or wofi.
+
 ## packages
 
 pre-built on [github releases](https://github.com/sabesena/vssl/releases) — `.deb` and `.rpm`.
